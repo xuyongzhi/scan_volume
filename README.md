@@ -18,4 +18,6 @@ raw_pcl:
 ![Alt text](/data/simu-4-28-data/raw_pcl/trucksand2a.png)
 ![Alt text](/data/simu-4-28-data/optimized_pcl/empty_optimized_b.png)
 ![Alt text](/data/simu-4-28-data/optimized_pcl/sand1_od_d.png)
+![Alt text](/data/5-11-real-truck-data/A30e_empty-11.2-11.5-a.png)
+![Alt text](/data/5-11-real-truck-data/A40D_clay-zColor-1.png)
 
