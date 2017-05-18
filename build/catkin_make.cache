@@ -1,0 +1,2 @@
+scan_data
+-DCATKIN_DEVEL_PREFIX=/home/x/Research/scan_volume/devel -DCMAKE_INSTALL_PREFIX=/home/x/Research/scan_volume/install -G Unix Makefiles
