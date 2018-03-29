@@ -1,6 +1,19 @@
 # scan_volume
 scan moving truck with 2d Lidar LMS111, extract 3d model of empty truck and filled truck to caclate volume of sand/soil/clay
 
+## Install
+	http://wiki.ros.org/LMS1xx
+	At root path, catkin_make
+
+## Set env:
+	cd devel,  source setup.bash
+
+## Connect
+	Physical: Connect with ethernet cable.
+	Software: -->“Edit Connections” -->Add Ethernet connection name as ”LMS111” -->IPV4 -->Create a new IP:192.168.0.4,Netmask：192.168.255.255，Gateway：192.168.0.1
+	rosrun lms1xx LMS1xx_node _host:=192.168.0.1
+	rosrun rviz rviz
+	In rviz: Add --> by topic --> LaserScan --> FixdFrame: change map to laser
 
 real volume = 3.93 L
 

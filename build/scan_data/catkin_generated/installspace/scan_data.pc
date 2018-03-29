@@ -1,8 +1,0 @@
-prefix=/home/x/Research/scan_volume/install
-
-Name: scan_data
-Description: Description of scan_data
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/x/Research/scan_volume/install/lib 
-Requires: 
