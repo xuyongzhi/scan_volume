@@ -22,7 +22,7 @@ class TrunkVolumeDetector:
 
         self.save_raw_scan = False
         self.raw_scan = []
-        
+
         self.height_axis = 0
         self.trunk_length = 0.43
         self.increment = 0.06 # 0.0012
@@ -32,7 +32,7 @@ class TrunkVolumeDetector:
         self.dif_threshold=  0.3 #  0.06
         self.x_scope = [1,15]
         self.y_scope = [-5,-15]
-	
+
         self.status = 'waiting'
         self.trunk_pcl = []
         self.scanN = 0
@@ -41,15 +41,15 @@ class TrunkVolumeDetector:
         self.ref_frame_LS = []
         self.trunk_pcl_pub = rospy.Publisher('trunk_pcl',PointCloud2,queue_size=10)
         self.scan_difN_pub = rospy.Publisher('scan_dif_n',Int64,queue_size=10)
-        self.scan_difStart_pub = rospy.Publisher('scan_dif_start',Int64,queue_size=10)       
-        self.scan_difEnd_pub = rospy.Publisher('scan_dif_end',Int64,queue_size=10)       
+        self.scan_difStart_pub = rospy.Publisher('scan_dif_start',Int64,queue_size=10)
+        self.scan_difEnd_pub = rospy.Publisher('scan_dif_end',Int64,queue_size=10)
         self.started = False
 
         self.fig_dif = plt.figure()
         self.ax_dif = self.fig_dif.add_subplot(111)
         self.received_n = 0
-	
-                
+
+
     def set_ref(self,pcl_LaserScan):
         self.reset()
         self.ref_points_xyz = self.xyz_from_pcl(pcl_LaserScan)
@@ -65,7 +65,7 @@ class TrunkVolumeDetector:
     def add_trunk_data(self,pcl_LaserScan,dif_start,dif_end):
 
         gen_data = pc2.read_points(pcl_LaserScan, field_names=None, skip_nans=True)
-	
+
         trunk_points = []
         if self.trunk_pcl:
             gen_trunk = pc2.read_points(self.trunk_pcl, field_names=None,skip_nans=True)
@@ -91,7 +91,11 @@ class TrunkVolumeDetector:
 
         scan_block_mean = np.mean(np.array(scan_points),axis = 0)
         xy_mean = np.array([0,0])
-        xy_mean[self.height_axis] = ( scan_block_mean[2] - self.height_offset ) * self.height_sign
+        try:
+            xy_mean[self.height_axis] = ( scan_block_mean[2] - self.height_offset ) * self.height_sign
+        except:
+            import pdb; pdb.set_trace()  # XXX BREAKPOINT
+            pass
         xy_mean[1-self.height_axis] = scan_block_mean[1-self.height_axis]
         # print "xy_mean = ",xy_mean
         # print "scan_points Num = ", len(scan_points)
@@ -109,6 +113,10 @@ class TrunkVolumeDetector:
 
 
     def dif_range(self,points_xyz):
+        '''
+        Compare the difference between points_xyz and self.ref_points_xyz.
+        Return the index of dif_start and dif_end
+        '''
         min_N = min(points_xyz.shape[0],self.ref_points_xyz.shape[0])
         dif = points_xyz[0:min_N,self.height_axis] - self.ref_points_xyz[0:min_N,self.height_axis]
         dif = np.fabs(dif)
@@ -145,7 +153,7 @@ class TrunkVolumeDetector:
                             # rospy.loginfo('short dif_range: dif_start= %d   dif_end= %d   dif_len= %d',dif_start,dif_end,dif_end-dif_start)
                             dif_start = len(dif)
                             dif_end = 0
-			    
+
             # if dif_start < dif_end:
             #     rospy.loginfo('N = %d  dif_start= %d   dif_end= %d   dif_len= %d',self.scanN, dif_start,dif_end,dif_end-dif_start)
 
@@ -166,7 +174,7 @@ class TrunkVolumeDetector:
 
 
     def push(self,data_LaserScan):
-        
+
         # rospy.loginfo('project data_LaserScan to PointCloud OK')
         pcl_LaserScan = LaserProjection().projectLaser(data_LaserScan)
         points_xyz = self.xyz_from_pcl(pcl_LaserScan)
@@ -176,6 +184,7 @@ class TrunkVolumeDetector:
         if self.ref_frame_LS:
             IsDif,dif_start,dif_end = self.dif_range(points_xyz)
             IsStart = self.scanN == 0 and IsDif
+            # After set ref frame, it starts with the first different frame
             if IsDif:
                 if self.status == 'waiting':
                         rospy.loginfo('start recording')
@@ -184,15 +193,14 @@ class TrunkVolumeDetector:
                     self.status = 'trunk_scanning'
             else:
                 if self.status == 'trunk_scanning':
-	                    
+                    # aotomatically stop scanning
                     self.status = 'end'
                     # self.update_scan_increment()
-			    
                 else:
                     self.status = 'waiting'
             if IsDif:
                 self.scanN = self.scanN + 1
-                self.add_trunk_data(pcl_LaserScan,dif_start,dif_end)
+                self.add_trunk_data(pcl_LaserScan, dif_start, dif_end)
                 self.trunk_pcl_pub.publish(self.trunk_pcl)
         #	rospy.loginfo('pub trunk pcl len = %d',dif_end-dif_start)
             if self.status == 'end':
@@ -217,7 +225,7 @@ class TrunkVolumeDetector:
                 if self.separate_models:
                     self.pcl_n = self.pcl_n + 1
                     self.reset()
-                bag_name = 'pcl_'+str(self.pcl_n)+'.bag' 
+                bag_name = 'pcl_'+str(self.pcl_n)+'.bag'
                 model_bag = rosbag.Bag( bag_name,'w')
                 model_bag.write('trunk_pcl',self.trunk_pcl)
                 model_bag.close()
@@ -256,11 +264,7 @@ class TrunkVolumeDetector:
 
 if __name__ == '__main__':
     print 'in main'
-    
-    TVD = TrunkVolumeDetector()
-    TVD.volume_from_bag('model_result_new/empty.bag')
 
-
-
-
+    #TVD = TrunkVolumeDetector()
+    #TVD.volume_from_bag('model_result_new/empty.bag')
 
