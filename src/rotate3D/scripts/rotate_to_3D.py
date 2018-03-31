@@ -31,7 +31,7 @@ class RotateTo3D:
         self.save_raw_scan = False
         self.raw_scan = []
 
-        speed = math.pi / 20
+        speed = math.pi / 41
         fre = 50
         self.increment_theta = 1.0 * speed / 50
         self.z0_offset = 4 * 0.01
