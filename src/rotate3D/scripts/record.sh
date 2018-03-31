@@ -1,2 +1,2 @@
 cd log
-rosbag record  -o  lms111_360d  /scan
+rosbag record  -o  lms111_180d  /scan

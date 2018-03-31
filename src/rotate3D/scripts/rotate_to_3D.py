@@ -11,7 +11,9 @@ from laser_geometry import LaserProjection
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import os
 
+BASE_DIR = os.path.dirname( os.path.abspath(__file__) )
 
 # each scan is along x axis
 # raw z is negative
@@ -28,16 +30,17 @@ class RotateTo3D:
         self.separate_models = False
         self.auto_pub_ref_at_frame = 5
 
-        self.save_raw_scan = False
-        self.raw_scan = []
-
-        speed = math.pi / 41
-        fre = 50
-        self.increment_theta = 1.0 * speed / 50
+        pi_angle = 41
+        speed = 1.0 * math.pi / pi_angle
+        fre = 49.5
+        self.increment_theta = 1.0 * speed / fre
         self.z0_offset = 4 * 0.01
+        #self.z0_offset = 10 * 0.01
+        #self.z0_offset = 0 * 0.01
 
         self.status = 'waiting'
         self.pcl_3d = None
+        self.all_3d_points_ls = []
         self.scanN = 0
         self.theta = math.pi * 0.2
 
@@ -48,10 +51,18 @@ class RotateTo3D:
         self.ax_dif = self.fig_dif.add_subplot(111)
         self.received_n = 0
 
+        res_path = os.path.join( BASE_DIR,'3d_res' )
+        if not os.path.exists( res_path ):
+            os.makedirs( res_path )
+        self.res_bag_name = os.path.join( res_path, 'pcl_3d-zofs_%d-piangle_%d-fre_%d.bag'%(self.z0_offset*100, pi_angle, fre*10) )
+        self.pcl3d_bag = rosbag.Bag( self.res_bag_name,'w')
+        rospy.loginfo( 'res path:%s'%(self.res_bag_name) )
+
     def start(self):
         self.status = 'start'
         self.scanN = 0
         self.pcl_3d = None
+        self.all_3d_points_ls = []
         rospy.loginfo('received sart command')
 
     def stop(self):
@@ -81,26 +92,23 @@ class RotateTo3D:
 
     def add_data( self, pcl_LaserScan, dif_start=None, dif_end=None ) :
         gen_data = pc2.read_points(pcl_LaserScan, field_names=None, skip_nans=True)
-        trunk_points = []
+        curscan_points = []
         #if self.pcl_3d != None:
         #    gen_trunk = pc2.read_points(self.pcl_3d, field_names=None,skip_nans=True)
         #    for p in gen_trunk:
-        #        trunk_points.append(list(p))
+        #        curscan_points.append(list(p))
 
-        scan_points = []
         for idx, p in enumerate(gen_data):
             if dif_start==None or ( idx >= dif_start and idx <= dif_end ):
                 point_2d = list(p) #[ x,y,z,?,? ] z==0
                 point_3d = self.from_2D_to_3D( point_2d  )
-                scan_points.append(point_3d)
-                trunk_points.append(point_3d)
+                curscan_points.append(point_3d)
                 #if self.scanN % 100 == 0 and idx==0:
                 #    rospy.loginfo( 'scanN=  %d, point_2d:%s,  point_3d:%s'%( self.scanN, point_2d, point_3d ) )
 
-        if self.save_raw_scan:
-            self.raw_scan.append(scan_points)
+        self.all_3d_points_ls += curscan_points
 
-        self.pcl_3d = pc2.create_cloud(pcl_LaserScan.header, pcl_LaserScan.fields, trunk_points)
+        self.pcl_3d = pc2.create_cloud(pcl_LaserScan.header, pcl_LaserScan.fields, curscan_points)
 
     def xyz_from_pcl(self,pcl):
         gen = pc2.read_points(pcl, field_names=None, skip_nans=True)
@@ -134,34 +142,20 @@ class RotateTo3D:
             self.add_data( pcl_LaserScan )
             self.scanN += 1
             self.pcl_3d_pub.publish(self.pcl_3d)
+            self.pcl3d_bag.write( 'pcl_3d', self.pcl_3d )
 
         elif self.status == 'stop':
             self.status = 'waitting'
-            if self.save_raw_scan:
-                txt_name = 'pcl_' + str(self.pcl_n) + '.txt'
-                model_txt = open(txt_name,'w')
-                for idx,scan in enumerate( self.raw_scan ):
-                    model_txt.write('\n')
-                    # Height = []
-                    for d in scan:
-                        model_txt.write(str(d[1])+'  ')
-                        # Height.append(d[1])
-                        # if idx == 20 and self.pcl_n==2:
-                        #     plt.plot(Height)
-                model_txt.close()
-
-                rospy.loginfo('save this model: ' + txt_name)
 
             if self.separate_models:
                 self.pcl_n = self.pcl_n + 1
                 self.reset()
-            bag_name = 'pcl_'+str(self.pcl_n)+'.bag'
-            model_bag = rosbag.Bag( bag_name,'w')
-            model_bag.write('pcl_3d',self.pcl_3d)
-            model_bag.close()
-            rospy.loginfo('stop recording, save this model: ' + bag_name )
 
-        if self.status == 'scanning' and  self.theta > math.pi * 1.5:
+            self.pcl3d_bag.close()
+
+            rospy.loginfo('stop recording, save this model: ' + self.res_bag_name )
+
+        if self.status == 'scanning' and  self.theta > 181.0 * math.pi  / 180:
             self.stop()
         return self.scanN, self.theta
 

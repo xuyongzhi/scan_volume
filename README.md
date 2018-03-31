@@ -11,10 +11,25 @@ scan moving truck with 2d Lidar LMS111, extract 3d model of empty truck and fill
 ## Connect
 	Physical: Connect with ethernet cable.
 	Software: -->“Edit Connections” -->Add Ethernet connection name as ”LMS111” -->IPV4 -->Create a new IP:192.168.0.4,Netmask：192.168.255.255，Gateway：192.168.0.1
-	rosrun lms1xx LMS1xx_node _host:=192.168.0.1
+	cd scan_volume/src/rotate3D/scripts
+	./connect_lms111.sh
+
+## reord
+	cd scan_volume/src/rotate3D/scripts
+	./record.sh
+
+## Play
+	cd scan_volume/src/rotate3D/scripts/log
+	./play.sh
+
+## Visualization
 	rosrun rviz rviz
 	In rviz: Add --> by topic --> LaserScan --> FixdFrame: change map to laser
+		 Add --> by topic --> pcl_3d
+		 Decay time: 1000
 
+
+## Truck volume example
 real volume = 3.93 L
 
 z_offset = 0.684
