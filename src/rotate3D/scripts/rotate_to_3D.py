@@ -16,6 +16,10 @@ import math
 # each scan is along x axis
 # raw z is negative
 
+def rotate_2d ( angle ):
+    R = np.array( [ [ np.cos(angle), -np.sin( angle ) ],[ np.sin( angle  ), np.cos( angle ) ] ] )
+    return R
+
 class RotateTo3D:
     '''
     self.status: 'waitting' --start--> 'scanning' --stop--> 'waitting'
@@ -27,12 +31,15 @@ class RotateTo3D:
         self.save_raw_scan = False
         self.raw_scan = []
 
-        self.increment_theta = 5.00 / 50 * math.pi / 180
+        speed = math.pi / 20
+        fre = 50
+        self.increment_theta = 1.0 * speed / 50
+        self.z0_offset = 4 * 0.01
 
         self.status = 'waiting'
         self.pcl_3d = None
         self.scanN = 0
-        self.theta = 0
+        self.theta = math.pi * 0.2
 
         self.pcl_n = 0
         self.pcl_3d_pub = rospy.Publisher('pcl_3d',PointCloud2,queue_size=10)
@@ -51,23 +58,34 @@ class RotateTo3D:
         self.status = 'stop'
         rospy.loginfo('received stop command, theta: %0.2f'%(self.theta*180.0/math.pi))
 
+
     def from_2D_to_3D( self, point_2d ):
         x0 = point_2d[0]
         y0 = point_2d[1]
+
         self.theta = theta = self.scanN * self.increment_theta
-        x = x0 * math.cos(theta)
-        y = -x0 * math.sin(theta)
-        z = y0
-        point_3d = [x, y, z, point_2d[3], point_2d[4]]
+        xy = np.matmul( rotate_2d( self.theta ), np.array( [[y0],[self.z0_offset]] ) )
+        point_3d = [ xy[0,0], xy[1,0], x0, point_2d[3], point_2d[4] ]
         return point_3d
 
-    def add_trunk_data( self, pcl_LaserScan, dif_start=None, dif_end=None ) :
+
+    #def from_2D_to_3D( self, point_2d ):
+    #    x0 = point_2d[1]
+    #    y0 = point_2d[0]
+    #    self.theta = theta = self.scanN * self.increment_theta
+    #    x = x0 * math.cos(theta)
+    #    y = -x0 * math.sin(theta)
+    #    z = y0
+    #    point_3d = [x, y, z, point_2d[3], point_2d[4]]
+    #    return point_3d
+
+    def add_data( self, pcl_LaserScan, dif_start=None, dif_end=None ) :
         gen_data = pc2.read_points(pcl_LaserScan, field_names=None, skip_nans=True)
         trunk_points = []
-        if self.pcl_3d != None:
-            gen_trunk = pc2.read_points(self.pcl_3d, field_names=None,skip_nans=True)
-            for p in gen_trunk:
-                trunk_points.append(list(p))
+        #if self.pcl_3d != None:
+        #    gen_trunk = pc2.read_points(self.pcl_3d, field_names=None,skip_nans=True)
+        #    for p in gen_trunk:
+        #        trunk_points.append(list(p))
 
         scan_points = []
         for idx, p in enumerate(gen_data):
@@ -76,6 +94,8 @@ class RotateTo3D:
                 point_3d = self.from_2D_to_3D( point_2d  )
                 scan_points.append(point_3d)
                 trunk_points.append(point_3d)
+                #if self.scanN % 100 == 0 and idx==0:
+                #    rospy.loginfo( 'scanN=  %d, point_2d:%s,  point_3d:%s'%( self.scanN, point_2d, point_3d ) )
 
         if self.save_raw_scan:
             self.raw_scan.append(scan_points)
@@ -111,7 +131,7 @@ class RotateTo3D:
         if self.status == 'start' or self.status == 'scanning':
             if self.status == 'start':
                 self.status = 'scanning'
-            self.add_trunk_data( pcl_LaserScan )
+            self.add_data( pcl_LaserScan )
             self.scanN += 1
             self.pcl_3d_pub.publish(self.pcl_3d)
 
@@ -141,8 +161,7 @@ class RotateTo3D:
             model_bag.close()
             rospy.loginfo('stop recording, save this model: ' + bag_name )
 
-
-        if self.theta > math.pi * 0.5:
+        if self.status == 'scanning' and  self.theta > math.pi * 1.5:
             self.stop()
         return self.scanN, self.theta
 
